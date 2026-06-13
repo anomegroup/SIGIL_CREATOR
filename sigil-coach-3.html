@@ -1,0 +1,1846 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sigil">
+<meta name="theme-color" content="#0d0b18">
+<title>Sigil Coach</title>
+
+<!-- PWA Manifest inline -->
+<script>
+const manifestData = {
+  name: "Sigil Coach",
+  short_name: "Sigil",
+  description: "Persoonlijke sigil generator voor coaching",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#0d0b18",
+  theme_color: "#0d0b18",
+  orientation: "portrait-primary",
+  icons: [{
+    src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" fill="#0d0b18"/><circle cx="96" cy="96" r="80" fill="none" stroke="#c9a84c" stroke-width="6"/><text x="96" y="112" font-size="72" text-anchor="middle" fill="#c9a84c" font-family="serif">✦</text></svg>'),
+    sizes: "192x192",
+    type: "image/svg+xml"
+  }]
+};
+const blob = new Blob([JSON.stringify(manifestData)], {type:'application/json'});
+const manifestURL = URL.createObjectURL(blob);
+const link = document.createElement('link');
+link.rel = 'manifest'; link.href = manifestURL;
+document.head.appendChild(link);
+</script>
+
+<style>
+/* ═══ RESET & BASE ═══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d0b18;
+  --bg2:     #13101f;
+  --bg3:     #1a1630;
+  --gold:    #c9a84c;
+  --gold2:   rgba(201,168,76,0.15);
+  --gold3:   rgba(201,168,76,0.08);
+  --purple:  #8b6fce;
+  --text:    #e8e0cc;
+  --textdim: rgba(232,224,204,0.45);
+  --border:  rgba(201,168,76,0.18);
+  --radius:  10px;
+  --sans:    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --serif:   Georgia, 'Times New Roman', serif;
+}
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ LAYOUT ═════════════════════════════════════════════════════════════ */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+/* ═══ HEADER ═════════════════════════════════════════════════════════════ */
+#header {
+  flex-shrink: 0;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+#header h1 {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: normal;
+  letter-spacing: 4px;
+  color: var(--gold);
+}
+#client-badge {
+  font-size: 11px;
+  color: var(--textdim);
+  letter-spacing: 1px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ═══ TABS ════════════════════════════════════════════════════════════════ */
+#tabs {
+  flex-shrink: 0;
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#tabs::-webkit-scrollbar { display: none; }
+.tab {
+  flex: 1;
+  min-width: 72px;
+  padding: 10px 6px 9px;
+  text-align: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--textdim);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-family: var(--sans);
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+.tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+.tab-icon { display: block; font-size: 16px; margin-bottom: 2px; }
+
+/* ═══ CONTENT ════════════════════════════════════════════════════════════ */
+#content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px;
+}
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ═══ FORMS ══════════════════════════════════════════════════════════════ */
+.section-title {
+  font-family: var(--serif);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.7;
+  margin-bottom: 14px;
+  margin-top: 4px;
+}
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--textdim);
+  margin-bottom: 5px;
+}
+.field .opt { font-size: 9px; opacity: 0.6; }
+input[type=text], input[type=number], input[type=date],
+input[type=time], textarea, select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-family: var(--sans);
+  outline: none;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: rgba(201,168,76,0.5);
+}
+textarea { resize: vertical; min-height: 80px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+/* Kinderen teller */
+.counter {
+  display: flex; align-items: center; gap: 12px;
+}
+.counter-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg3); color: var(--gold);
+  font-size: 20px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  font-family: var(--sans); flex-shrink: 0;
+}
+.counter-val {
+  font-size: 22px; font-family: var(--serif);
+  color: var(--gold); min-width: 30px; text-align: center;
+}
+
+/* Thema chips */
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  padding: 5px 13px; border-radius: 20px; font-size: 11px;
+  border: 1px solid var(--border); cursor: pointer;
+  background: transparent; color: var(--textdim);
+  font-family: var(--sans); transition: all 0.2s;
+}
+.chip.active {
+  background: var(--gold2); border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Divider */
+.divider {
+  height: 1px; background: var(--border);
+  margin: 20px 0;
+}
+
+/* ═══ CANVAS AREA ════════════════════════════════════════════════════════ */
+.canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto 16px;
+}
+.canvas-wrap canvas {
+  width: 100%;
+  border-radius: 6px;
+  display: block;
+}
+.canvas-label {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--textdim);
+  margin-bottom: 10px;
+}
+
+/* ═══ BUTTONS ════════════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 9px 20px; border-radius: 7px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--textdim); font-size: 12px; letter-spacing: 1px;
+  cursor: pointer; font-family: var(--sans);
+  transition: all 0.2s; text-decoration: none;
+}
+.btn:hover { border-color: var(--gold); color: var(--gold); }
+.btn-primary {
+  background: var(--gold2); border-color: var(--gold);
+  color: var(--gold); font-weight: 600;
+}
+.btn-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; margin-top: 12px;
+}
+
+/* Stijl toggle */
+.style-toggle {
+  display: flex; gap: 6px; justify-content: center;
+  margin-bottom: 14px;
+}
+.style-btn {
+  padding: 5px 14px; border-radius: 5px; font-size: 10px;
+  letter-spacing: 1px; cursor: pointer; border: 1px solid var(--border);
+  background: transparent; color: var(--textdim);
+  font-family: var(--sans); transition: all 0.2s;
+}
+.style-btn.active {
+  border-color: var(--gold); color: var(--gold);
+  background: var(--gold3);
+}
+
+/* ═══ UITLEG TEKST ═══════════════════════════════════════════════════════ */
+.uitleg-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-bottom: 12px;
+}
+.uitleg-card h3 {
+  font-family: var(--serif);
+  font-size: 14px;
+  color: var(--gold);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.uitleg-card p {
+  font-size: 13px;
+  color: var(--textdim);
+  line-height: 1.75;
+}
+.uitleg-card .glyph {
+  font-size: 22px;
+  float: left;
+  margin-right: 10px;
+  margin-top: 2px;
+  color: var(--gold);
+}
+.preview-name {
+  text-align: center;
+  font-family: var(--serif);
+  font-size: 18px;
+  letter-spacing: 5px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  opacity: 0.85;
+}
+.preview-date {
+  text-align: center;
+  font-size: 11px;
+  color: var(--textdim);
+  margin-bottom: 18px;
+  letter-spacing: 2px;
+}
+
+/* ═══ GENERATE BUTTON ════════════════════════════════════════════════════ */
+#gen-btn {
+  width: 100%;
+  padding: 13px;
+  background: var(--gold2);
+  border: 1.5px solid var(--gold);
+  color: var(--gold);
+  font-size: 14px;
+  font-family: var(--serif);
+  letter-spacing: 3px;
+  border-radius: 9px;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: all 0.2s;
+}
+#gen-btn:active { transform: scale(0.98); opacity: 0.85; }
+
+/* ═══ EMPTY STATE ════════════════════════════════════════════════════════ */
+.empty {
+  text-align: center;
+  padding: 50px 20px;
+  color: var(--textdim);
+  font-size: 13px;
+  line-height: 2;
+}
+.empty .big { font-size: 36px; display: block; margin-bottom: 10px; opacity: 0.3; }
+
+/* ═══ NUMEROLOGIE INFO BLOK ══════════════════════════════════════════════ */
+.num-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; margin-bottom: 14px;
+}
+.num-cell {
+  background: var(--bg2);
+  padding: 10px 6px;
+  text-align: center;
+}
+.num-cell .n { font-size: 20px; font-family: var(--serif); color: var(--gold); }
+.num-cell .p { font-size: 8px; color: var(--textdim); margin-top: 2px; letter-spacing: 0.5px; }
+.num-cell.active { background: var(--bg3); }
+.num-cell.active .n { color: #fff; }
+.num-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.num-badge {
+  flex: 1; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 7px; padding: 9px 10px; text-align: center;
+}
+.num-badge .val { font-size: 20px; font-family: var(--serif); color: var(--gold); }
+.num-badge .lbl { font-size: 9px; color: var(--textdim); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+
+/* Scrollbar styling */
+#content::-webkit-scrollbar { width: 3px; }
+#content::-webkit-scrollbar-track { background: transparent; }
+#content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- HEADER -->
+  <div id="header">
+    <h1>✦ SIGIL COACH</h1>
+    <span id="client-badge">Vul gegevens in →</span>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <button class="tab active" onclick="showTab(0)">
+      <span class="tab-icon">✎</span>Gegevens
+    </button>
+    <button class="tab" onclick="showTab(1)">
+      <span class="tab-icon">☰</span>Naam
+    </button>
+    <button class="tab" onclick="showTab(2)">
+      <span class="tab-icon">◎</span>Sigil
+    </button>
+    <button class="tab" onclick="showTab(3)">
+      <span class="tab-icon">✦</span>Decoratief
+    </button>
+    <button class="tab" onclick="showTab(4)">
+      <span class="tab-icon">☿</span>Uitleg
+    </button>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 0: GEGEVENS
+    ══════════════════════════════════════════════════════ -->
+    <div class="panel active" id="panel-0">
+      <p class="section-title">Cliëntgegevens</p>
+
+      <div class="field">
+        <label>Naam <span class="opt">(voornaam voor sigil)</span></label>
+        <input type="text" id="f-name" placeholder="bijv. SOPHIE" oninput="this.value=this.value.toUpperCase(); save()">
+      </div>
+
+      <div class="grid3">
+        <div class="field">
+          <label>Dag</label>
+          <input type="number" id="f-day" min="1" max="31" placeholder="13" oninput="save()">
+        </div>
+        <div class="field">
+          <label>Maand</label>
+          <input type="number" id="f-month" min="1" max="12" placeholder="1" oninput="save()">
+        </div>
+        <div class="field">
+          <label>Jaar</label>
+          <input type="number" id="f-year" min="1900" max="2025" placeholder="1990" oninput="save()">
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="field">
+          <label>Geboorteuur <span class="opt">(opt.)</span></label>
+          <input type="time" id="f-hour" oninput="save()">
+        </div>
+        <div class="field">
+          <label>Geboorteplaats <span class="opt">(opt.)</span></label>
+          <input type="text" id="f-place" placeholder="bijv. Antwerpen" oninput="save()">
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <p class="section-title">Persoonlijke context</p>
+
+      <div class="field">
+        <label>Aantal kinderen</label>
+        <div class="counter">
+          <button class="counter-btn" onclick="changeKids(-1)">−</button>
+          <span class="counter-val" id="kids-val">0</span>
+          <button class="counter-btn" onclick="changeKids(1)">+</button>
+          <span style="font-size:11px;color:var(--textdim);margin-left:4px">worden weergegeven als verticale lijnen</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Levensthema <span class="opt">(opt. — kies of typ zelf)</span></label>
+        <div class="chips" id="theme-chips" style="margin-bottom:8px"></div>
+        <input type="text" id="f-theme" placeholder="of typ een eigen thema..." oninput="save()">
+      </div>
+
+      <div class="field">
+        <label>Persoonlijke notities <span class="opt">(voor jezelf, verschijnt in uitleg)</span></label>
+        <textarea id="f-notes" placeholder="bijv. verwerking verlies, zoektocht naar zelfvertrouwen, nieuwe start..." oninput="save()"></textarea>
+      </div>
+
+      <div class="field">
+        <label>Stijlvoorkeur output</label>
+        <select id="f-style" onchange="save()">
+          <option value="dark">Donker (goud op zwart)</option>
+          <option value="parchment">Perkament</option>
+          <option value="white" selected>Wit (voor afdruk / tattoo)</option>
+        </select>
+      </div>
+
+      <button id="gen-btn" onclick="generateAll()">✦ &nbsp; GENEREER SIGIL &nbsp; ✦</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 1: NAAMSYMBOOL
+    ══════════════════════════════════════════════════════ -->
+    <div class="panel" id="panel-1">
+      <div id="name-empty" class="empty">
+        <span class="big">☰</span>
+        Vul de gegevens in en klik op<br><strong>✦ Genereer Sigil</strong>
+      </div>
+      <div id="name-content" style="display:none">
+        <div class="preview-name" id="n-pname"></div>
+        <div class="preview-date" id="n-pdate"></div>
+
+        <div class="canvas-label">NAAMSYMBOOL — Lo Shu Pad</div>
+        <div class="canvas-wrap">
+          <canvas id="cv-name" width="500" height="500"></canvas>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Numerologie info -->
+        <p class="section-title">Numerologisch pad</p>
+        <div id="name-num-info"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="dlCanvas('cv-name','naamsymbool')">↓ Download PNG</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 2: LIJNSIGIL
+    ══════════════════════════════════════════════════════ -->
+    <div class="panel" id="panel-2">
+      <div id="sigil-empty" class="empty">
+        <span class="big">◎</span>
+        Genereer eerst de sigil via de Gegevens-tab
+      </div>
+      <div id="sigil-content" style="display:none">
+        <div class="preview-name" id="s-pname"></div>
+        <div class="preview-date" id="s-pdate"></div>
+
+        <div class="canvas-label">LIJN SIGIL — Naam + Datum gecombineerd</div>
+        <div class="canvas-wrap">
+          <canvas id="cv-sigil" width="500" height="500"></canvas>
+        </div>
+
+        <div class="divider"></div>
+        <div id="sigil-num-info"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="dlCanvas('cv-sigil','lijnsigil')">↓ Download PNG</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 3: DECORATIEF SIGIL
+    ══════════════════════════════════════════════════════ -->
+    <div class="panel" id="panel-3">
+      <div id="decor-empty" class="empty">
+        <span class="big">✦</span>
+        Genereer eerst de sigil via de Gegevens-tab
+      </div>
+      <div id="decor-content" style="display:none">
+        <div class="preview-name" id="d-pname"></div>
+        <div class="preview-date" id="d-pdate"></div>
+
+        <div class="canvas-label">DECORATIEF SIGIL — Figuratief</div>
+        <div class="canvas-wrap">
+          <canvas id="cv-decor" width="500" height="500"></canvas>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="dlCanvas('cv-decor','decoratief')">↓ Download PNG</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         TAB 4: UITLEG
+    ══════════════════════════════════════════════════════ -->
+    <div class="panel" id="panel-4">
+      <div id="uitleg-empty" class="empty">
+        <span class="big">☿</span>
+        Genereer eerst de sigil via de Gegevens-tab
+      </div>
+      <div id="uitleg-content" style="display:none">
+        <div class="preview-name" id="u-pname"></div>
+        <div class="preview-date" id="u-pdate"></div>
+
+        <div id="uitleg-cards"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="dlUitleg()">↓ Download Uitleg PNG</button>
+        </div>
+        <canvas id="cv-uitleg" width="680" height="960" style="display:none"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA & STATE
+// ═══════════════════════════════════════════════════════════════════════════
+const THEMES = ['Groei','Rust','Liefde','Kracht','Healing','Balans','Intuïtie','Vrijheid','Vertrouwen','Transformatie','Verbinding','Zelfontdekking'];
+const PY = {A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,I:9,J:1,K:2,L:3,M:4,N:5,O:6,P:7,Q:8,R:9,S:1,T:2,U:3,V:4,W:5,X:6,Y:7,Z:8};
+const PLANET = {1:'Zon ☉',2:'Maan ☽',3:'Jupiter ♃',4:'Rahu ☊',5:'Mercurius ☿',6:'Venus ♀',7:'Ketu ☋',8:'Saturnus ♄',9:'Mars ♂'};
+const PLANET_MEANING = {
+  1:'De Zon vertegenwoordigt kernidentiteit, vitaliteit en levensdoel. Een sterke Zon-energie geeft zelfvertrouwen en leiderschap.',
+  2:'De Maan staat voor emotie, intuïtie en innerlijk ritme. Ze verbindt je met je diepste gevoelens en met het cyclische van het leven.',
+  3:'Jupiter is de planeet van groei, wijsheid en overvloed. Ze nodigt uit tot vertrouwen en expansie op alle levensgebieden.',
+  4:'Rahu (Noordelijke Maansknoop) vertegenwoordigt ambitie, vernieuwing en de richting die de ziel wil inslaan in dit leven.',
+  5:'Mercurius regeert communicatie, intelligentie en verbinding. Ze geeft het vermogen om te schakelen, te leren en te begrijpen.',
+  6:'Venus staat voor schoonheid, harmonie en liefde. Ze verbindt je met wat je waardevol vindt en wat je hart vreugde geeft.',
+  7:'Ketu (Zuidelijke Maansknoop) staat voor spirituele diepgang en loslaten. Ze wijst op oude zielspatronen die integratie vragen.',
+  8:'Saturnus is de meester van structuur, discipline en karma. Ze leert geduld en beloont wie de weg met toewijding bewandelt.',
+  9:'Mars geeft energie, daadkracht en moed. Ze voedt de wil om te handelen en obstakels te overwinnen.'
+};
+const LO_SHU = {4:{x:0,y:0},9:{x:1,y:0},2:{x:2,y:0},3:{x:0,y:1},5:{x:1,y:1},7:{x:2,y:1},8:{x:0,y:2},1:{x:1,y:2},6:{x:2,y:2}};
+const ANG = {1:90,2:315,3:180,4:225,6:45,7:0,8:135,9:270};
+
+let state = {
+  name:'', day:0, month:0, year:0, hour:'', place:'',
+  kids:0, theme:'', notes:'', style:'white',
+  generated: false
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+(function init() {
+  // Thema chips
+  const wrap = document.getElementById('theme-chips');
+  THEMES.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'chip'; b.textContent = t;
+    b.onclick = () => {
+      document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      b.classList.toggle('active');
+      document.getElementById('f-theme').value = b.classList.contains('active') ? t : '';
+      save();
+    };
+    wrap.appendChild(b);
+  });
+  // Laad opgeslagen staat
+  try {
+    const saved = localStorage.getItem('sigil-state');
+    if (saved) { Object.assign(state, JSON.parse(saved)); loadForm(); }
+  } catch(e){}
+})();
+
+function loadForm() {
+  const f = (id, val) => { const el=document.getElementById(id); if(el&&val!==undefined) el.value=val; };
+  f('f-name', state.name); f('f-day', state.day||''); f('f-month', state.month||'');
+  f('f-year', state.year||''); f('f-hour', state.hour); f('f-place', state.place);
+  f('f-theme', state.theme); f('f-notes', state.notes); f('f-style', state.style||'white');
+  document.getElementById('kids-val').textContent = state.kids||0;
+  // Activeer chip als thema overeenkomt
+  if (state.theme) {
+    document.querySelectorAll('.chip').forEach(c=>{
+      if(c.textContent===state.theme) c.classList.add('active');
+    });
+  }
+}
+
+function save() {
+  state.name  = (document.getElementById('f-name').value||'').toUpperCase();
+  state.day   = parseInt(document.getElementById('f-day').value)||0;
+  state.month = parseInt(document.getElementById('f-month').value)||0;
+  state.year  = parseInt(document.getElementById('f-year').value)||0;
+  state.hour  = document.getElementById('f-hour').value||'';
+  state.place = document.getElementById('f-place').value||'';
+  state.theme = document.getElementById('f-theme').value||'';
+  state.notes = document.getElementById('f-notes').value||'';
+  state.style = document.getElementById('f-style').value||'white';
+  state.kids  = parseInt(document.getElementById('kids-val').textContent)||0;
+  try { localStorage.setItem('sigil-state', JSON.stringify(state)); } catch(e){}
+  updateBadge();
+}
+
+function updateBadge() {
+  const b = document.getElementById('client-badge');
+  b.textContent = state.name ? `${state.name}  ${state.day||'?'}/${state.month||'?'}/${state.year||'?'}` : 'Vul gegevens in →';
+}
+
+function changeKids(d) {
+  const el = document.getElementById('kids-val');
+  el.textContent = Math.max(0, Math.min(9, (parseInt(el.textContent)||0)+d));
+  save();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════════════
+let currentTab = 0;
+function showTab(n) {
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+  currentTab = n;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NUMEROLOGIE
+// ═══════════════════════════════════════════════════════════════════════════
+function reduc(n){ while(n>9) n=String(n).split('').reduce((a,b)=>a+parseInt(b),0); return n; }
+function nameNums(name){ return name.toUpperCase().split('').filter(c=>PY[c]).map(c=>PY[c]); }
+function uniq(a){ const s=new Set(); return a.filter(x=>{if(s.has(x))return false;s.add(x);return true;}); }
+
+function calcAll() {
+  const {name,day,month,year} = state;
+  const nn   = nameNums(name);
+  const dest = nn.length ? reduc(nn.reduce((a,b)=>a+b,0)) : 0;
+  const dobS = `${String(day).padStart(2,'0')}${String(month).padStart(2,'0')}${year}`;
+  const dobD = dobS.split('').map(Number).filter(n=>n!==0);
+  const driv = reduc([...String(day)].map(Number).reduce((a,b)=>a+b,0));
+  const life = reduc(dobS.split('').map(Number).reduce((a,b)=>a+b,0));
+  const uName = uniq(nn);
+  const uDob  = uniq([...dobD, driv, life]);
+  const combined = uniq([...uName, ...uDob]);
+  const counts = {}; for(let i=1;i<=9;i++) counts[i]=0;
+  [...dobD,driv,life].forEach(n=>{ if(n>=1&&n<=9) counts[n]++; });
+  const missing = Object.entries(counts).filter(([,v])=>v===0).map(([k])=>parseInt(k));
+  return {nn,dest,dobD,driv,life,uName,uDob,combined,counts,missing};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CANVAS HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function themeColors(mode) {
+  if (mode==='dark')      return {bg:'#09080f',fg:'rgba(212,168,75,1)',sh:'#d4a84b',fgP:'rgba(160,130,220,1)'};
+  if (mode==='parchment') return {bg:'#f2e8d5',fg:'rgba(26,20,8,0.92)',sh:null,fgP:'rgba(70,40,120,0.9)'};
+  return                         {bg:'#ffffff', fg:'rgba(20,15,5,0.90)',sh:null,fgP:'rgba(60,30,110,0.88)'};
+}
+function fgA(T,a){ return T.fg.replace(/[\d.]+\)$/,`${a})`); }
+function glowOn(ctx,T,b){ ctx.shadowColor=T.sh||'transparent'; ctx.shadowBlur=T.sh?b:0; }
+function setStroke(ctx,T,lw,a=1,blur=0){ ctx.strokeStyle=fgA(T,a); ctx.fillStyle=fgA(T,a); ctx.lineWidth=lw; ctx.lineCap='round'; ctx.lineJoin='round'; glowOn(ctx,T,blur); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 1. NAAMSYMBOOL
+// ═══════════════════════════════════════════════════════════════════════════
+function drawNameSymbol(canvas, mode) {
+  const calc = calcAll();
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const T = themeColors(mode);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+
+  const pad=W*0.13, step=(W-2*pad)/2;
+
+  function gpt(num){ const p=LO_SHU[num]; return {x:pad+p.x*step, y:pad+p.y*step}; }
+
+  // Subtiel grid
+  ctx.strokeStyle=fgA(T,0.07); ctx.lineWidth=0.7;
+  for(let r=0;r<3;r++) for(let c=0;c<3;c++){
+    ctx.beginPath(); ctx.rect(pad+c*step-step*0.44,pad+r*step-step*0.44,step*0.88,step*0.88); ctx.stroke();
+  }
+
+  // Grid getallen + planeten
+  const inPath = new Set(calc.uName);
+  for(let num=1;num<=9;num++){
+    const p=gpt(num), active=inPath.has(num);
+    if(active){
+      ctx.beginPath(); ctx.arc(p.x,p.y,step*0.3,0,Math.PI*2);
+      ctx.fillStyle=T.sh?'rgba(212,168,75,0.10)':'rgba(201,168,76,0.12)'; ctx.fill();
+    }
+    ctx.font=`${active?'bold ':''} ${W*0.055}px Georgia,serif`;
+    ctx.fillStyle=active?T.fg:fgA(T,0.3);
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if(active&&T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=10;}else{ctx.shadowBlur=0;}
+    ctx.fillText(String(num),p.x,p.y-W*0.016);
+    ctx.font=`${W*0.022}px Georgia,serif`;
+    ctx.fillStyle=active?fgA(T,0.65):fgA(T,0.2);
+    ctx.shadowBlur=0;
+    const g=PLANET[num].split(' ')[1]||'';
+    ctx.fillText(g,p.x,p.y+W*0.022);
+  }
+
+  // Naam → cijfers rij bovenaan
+  const letters=state.name.split('').filter(c=>PY[c]);
+  if(letters.length){
+    const lw=(W*0.8)/Math.max(letters.length,1), lx0=W*0.10, ly=pad*0.35;
+    letters.forEach((c,i)=>{
+      const lx=lx0+i*lw+lw/2;
+      ctx.font=`bold ${W*0.036}px Georgia,serif`;
+      ctx.fillStyle=T.fg; if(T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=6;}
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(c,lx,ly-W*0.020);
+      ctx.font=`${W*0.028}px Georgia,serif`;
+      ctx.fillStyle=fgA(T,0.6); ctx.shadowBlur=0;
+      ctx.fillText(String(PY[c]),lx,ly+W*0.016);
+    });
+  }
+
+  // Naam sigil-pad
+  const uN=calc.uName;
+  if(uN.length>=2){
+    const pts=uN.map(n=>gpt(n));
+    // Gloed
+    ctx.save(); ctx.strokeStyle=T.sh?'rgba(212,168,75,0.18)':'rgba(80,50,150,0.12)';
+    ctx.lineWidth=W*0.022; ctx.lineCap='round'; ctx.lineJoin='round';
+    if(T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=20;}
+    ctx.beginPath(); pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+    // Kernlijn
+    ctx.strokeStyle=T.sh?'rgba(212,168,75,0.95)':T.fgP.replace('1)','0.85)');
+    ctx.lineWidth=W*0.006; ctx.shadowBlur=T.sh?14:0;
+    ctx.beginPath(); pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+    ctx.restore();
+    // Start cirkel
+    const sp=pts[0];
+    ctx.save(); ctx.strokeStyle=T.sh?'rgba(212,168,75,0.9)':T.fgP.replace('1)','0.85)');
+    ctx.lineWidth=W*0.005; if(T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=10;}
+    ctx.beginPath(); ctx.arc(sp.x,sp.y,W*0.022,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle=T.sh?'rgba(212,168,75,0.9)':T.fgP.replace('1)','0.85)');
+    ctx.beginPath(); ctx.arc(sp.x,sp.y,W*0.007,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    // Eindstreep
+    if(pts.length>1){
+      const ep=pts[pts.length-1],pp=pts[pts.length-2];
+      const a=Math.atan2(ep.y-pp.y,ep.x-pp.x)+Math.PI/2;
+      ctx.save(); ctx.strokeStyle=T.sh?'rgba(212,168,75,0.9)':T.fgP.replace('1)','0.85)');
+      ctx.lineWidth=W*0.005; if(T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=10;}
+      ctx.beginPath();
+      ctx.moveTo(ep.x+Math.cos(a)*W*0.022,ep.y+Math.sin(a)*W*0.022);
+      ctx.lineTo(ep.x-Math.cos(a)*W*0.022,ep.y-Math.sin(a)*W*0.022);
+      ctx.stroke(); ctx.restore();
+    }
+  }
+
+  // Label
+  ctx.save(); ctx.font=`${W*0.022}px Georgia,serif`; ctx.textAlign='center';
+  ctx.fillStyle=fgA(T,0.3); ctx.shadowBlur=0;
+  ctx.fillText(`Naamsymbool · ${state.name}`, W/2, H-pad*0.3);
+  ctx.restore();
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ASTROLOGIE ENGINE
+// ═══════════════════════════════════════════════════════════════════════════
+function getAstro() {
+  const {day,month,year,hour} = state;
+  const SIGNS=[
+    {n:'Steenbok',g:'♑',r:'♄',el:'aarde',q:'kardinaal',heer:'Saturnus',d:20,m:1},
+    {n:'Waterman',g:'♒',r:'♅',el:'lucht',q:'vast',heer:'Uranus',d:19,m:2},
+    {n:'Vissen',g:'♓',r:'♆',el:'water',q:'veranderlijk',heer:'Neptunus',d:20,m:3},
+    {n:'Ram',g:'♈',r:'♂',el:'vuur',q:'kardinaal',heer:'Mars',d:20,m:4},
+    {n:'Stier',g:'♉',r:'♀',el:'aarde',q:'vast',heer:'Venus',d:21,m:5},
+    {n:'Tweelingen',g:'♊',r:'☿',el:'lucht',q:'veranderlijk',heer:'Mercurius',d:21,m:6},
+    {n:'Kreeft',g:'♋',r:'☽',el:'water',q:'kardinaal',heer:'Maan',d:23,m:7},
+    {n:'Leeuw',g:'♌',r:'☉',el:'vuur',q:'vast',heer:'Zon',d:23,m:8},
+    {n:'Maagd',g:'♍',r:'☿',el:'aarde',q:'veranderlijk',heer:'Mercurius',d:23,m:9},
+    {n:'Weegschaal',g:'♎',r:'♀',el:'lucht',q:'kardinaal',heer:'Venus',d:24,m:10},
+    {n:'Schorpioen',g:'♏',r:'♇',el:'water',q:'vast',heer:'Pluto',d:22,m:11},
+    {n:'Boogschutter',g:'♐',r:'♃',el:'vuur',q:'veranderlijk',heer:'Jupiter',d:22,m:12},
+    {n:'Steenbok',g:'♑',r:'♄',el:'aarde',q:'kardinaal',heer:'Saturnus',d:31,m:12},
+  ];
+  function getSign(d,m){ for(const s of SIGNS){if(m===s.m&&d<=s.d)return s;} return SIGNS[0]; }
+  const sun = getSign(day,month);
+
+  const SIGN_LIST=['Ram','Stier','Tweelingen','Kreeft','Leeuw','Maagd','Weegschaal','Schorpioen','Boogschutter','Steenbok','Waterman','Vissen'];
+  const ASC_SIGNS=[
+    {n:'Steenbok',g:'♑',heer:'Saturnus',r:'♄'},
+    {n:'Waterman',g:'♒',heer:'Uranus',r:'♅'},
+    {n:'Vissen',g:'♓',heer:'Neptunus',r:'♆'},
+    {n:'Ram',g:'♈',heer:'Mars',r:'♂'},
+    {n:'Stier',g:'♉',heer:'Venus',r:'♀'},
+    {n:'Tweelingen',g:'♊',heer:'Mercurius',r:'☿'},
+    {n:'Kreeft',g:'♋',heer:'Maan',r:'☽'},
+    {n:'Leeuw',g:'♌',heer:'Zon',r:'☉'},
+    {n:'Maagd',g:'♍',heer:'Mercurius',r:'☿'},
+    {n:'Weegschaal',g:'♎',heer:'Venus',r:'♀'},
+    {n:'Schorpioen',g:'♏',heer:'Pluto',r:'♇'},
+    {n:'Boogschutter',g:'♐',heer:'Jupiter',r:'♃'},
+  ];
+
+  // Ascendant: benadering via uur (elke 2u een nieuw teken)
+  const ASC_TABLE={1:9,2:9,3:10,4:11,5:0,6:1,7:2,8:3,9:4,10:5,11:6,12:8};
+  let h=0;
+  if(hour){const p=hour.split(':');h=parseInt(p[0])+(parseInt(p[1]||0)/60);}
+  const midnight_sign=ASC_TABLE[month]||0;
+  const asc_index=(midnight_sign+Math.floor(h/2))%12;
+  const asc=hour?ASC_SIGNS[asc_index]:null;
+
+  // Maan: Julian Day benadering
+  const JD=367*year-Math.floor(7*(year+Math.floor((month+9)/12))/4)
+           +Math.floor(275*month/9)+day+1721013.5+h/24;
+  const moonCycle=(JD-2451549.5)/29.53058867;
+  const moonPhase=moonCycle-Math.floor(moonCycle);
+  const moonDeg=(moonPhase*360+180)%360;
+  const moonSignIdx=Math.floor(moonDeg/30)%12;
+  const moon=ASC_SIGNS[moonSignIdx];
+
+  return {sun,asc,moon,moonPhase,SIGN_LIST};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 2. LIJNSIGIL — rijk met sterren, dierenriem, planeetglyphs, maan, ringen
+// ═══════════════════════════════════════════════════════════════════════════
+function drawLineSigil(canvas, mode) {
+  const calc=calcAll(), astro=getAstro();
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height, T=themeColors(mode);
+  const cx=W/2, cy=H/2;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+
+  if(T.sh){const g=ctx.createRadialGradient(cx,cy,0,cx,cy,W*0.55);g.addColorStop(0,'rgba(212,168,75,0.07)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+
+  const R=W*0.295, Rmid=W*0.368, Rout=W*0.428, Rstar=W*0.468;
+  function ptR(num,r){if(num===5)return{x:cx,y:cy};const d=(ANG[num]-90)*Math.PI/180;return{x:cx+r*Math.cos(d),y:cy+r*Math.sin(d)};}
+  function ss(lw,a,b=0){ctx.strokeStyle=fgA(T,a);ctx.fillStyle=fgA(T,a);ctx.lineWidth=lw;ctx.lineCap='round';ctx.lineJoin='round';glowOn(ctx,T,b);}
+
+  // Sterren achtergrond (deterministisch, uniek per persoon)
+  const seed=state.day*7+state.month*13+(state.year%100)*3;
+  function rng(i){let x=Math.sin(seed+i*2.7)*9999;return x-Math.floor(x);}
+  for(let i=0;i<60;i++){
+    const ang=rng(i)*Math.PI*2, dist=W*(0.05+rng(i+100)*0.46);
+    const sx=cx+dist*Math.cos(ang), sy=cy+dist*Math.sin(ang);
+    const sr=rng(i+200)*(W*0.005)+W*0.0018;
+    const alpha=0.12+rng(i+300)*0.42;
+    ctx.save(); ctx.fillStyle=fgA(T,alpha); ctx.shadowBlur=0;
+    if(rng(i+400)>0.72){
+      ctx.translate(sx,sy); ctx.rotate(rng(i)*Math.PI);
+      ctx.beginPath();
+      for(let p=0;p<4;p++){const a2=p*Math.PI/2,a3=a2+Math.PI/4;ctx.lineTo(sr*2.2*Math.cos(a2),sr*2.2*Math.sin(a2));ctx.lineTo(sr*0.8*Math.cos(a3),sr*0.8*Math.sin(a3));}
+      ctx.closePath(); ctx.fill();
+    } else {ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fill();}
+    ctx.restore();
+  }
+
+  // Dubbele buitencirkel
+  ss(W*0.007,0.88,16); ctx.beginPath();ctx.arc(cx,cy,Rout,0,Math.PI*2);ctx.stroke();
+  ss(W*0.002,0.22,0); ctx.beginPath();ctx.arc(cx,cy,Rout+W*0.014,0,Math.PI*2);ctx.stroke();
+
+  // 12 dierenriemtekens op buitenring
+  const zodG=['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+  const SLIST=['Ram','Stier','Tweelingen','Kreeft','Leeuw','Maagd','Weegschaal','Schorpioen','Boogschutter','Steenbok','Waterman','Vissen'];
+  const sunIdx=SLIST.indexOf(astro.sun.n);
+  const ascIdx=astro.asc?SLIST.indexOf(astro.asc.n):-1;
+  const moonIdx=SLIST.indexOf(astro.moon.n);
+  for(let i=0;i<12;i++){
+    const ang=(i/12)*Math.PI*2-Math.PI/2;
+    const isSun=(i===sunIdx), isAsc=(i===ascIdx), isMoon=(i===moonIdx);
+    const special=isSun||isAsc||isMoon;
+    // Tick
+    const t1=Rout+W*0.016, t2=t1+(special?W*0.026:W*0.012);
+    ss(special?W*0.004:W*0.0015, special?0.88:0.28, special?10:0);
+    ctx.beginPath();ctx.moveTo(cx+t1*Math.cos(ang),cy+t1*Math.sin(ang));ctx.lineTo(cx+t2*Math.cos(ang),cy+t2*Math.sin(ang));ctx.stroke();
+    // 36 kleine tussen-tikjes
+    for(let j=1;j<3;j++){const a2=ang+(j/3)*(Math.PI/6);ss(W*0.001,0.15,0);ctx.beginPath();ctx.moveTo(cx+(Rout+W*0.016)*Math.cos(a2),cy+(Rout+W*0.016)*Math.sin(a2));ctx.lineTo(cx+(Rout+W*0.022)*Math.cos(a2),cy+(Rout+W*0.022)*Math.sin(a2));ctx.stroke();}
+    // Glyph
+    ctx.save();
+    ctx.font=`${isSun?W*0.042:isAsc?W*0.036:isMoon?W*0.032:W*0.025}px Georgia,serif`;
+    ctx.fillStyle=fgA(T,isSun?0.95:isAsc?0.82:isMoon?0.72:0.22);
+    if(special&&T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=isSun?18:12;}else ctx.shadowBlur=0;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(zodG[i],cx+Rstar*Math.cos(ang),cy+Rstar*Math.sin(ang));
+    ctx.restore();
+  }
+
+  // Middelste ring subtiel
+  ss(W*0.002,0.13,0); ctx.beginPath();ctx.arc(cx,cy,Rmid,0,Math.PI*2);ctx.stroke();
+
+  // Planeet glyphs op middelste ring — grootte naar dominantie
+  for(const [num] of Object.entries(ANG)){
+    const n=parseInt(num);
+    const pt=ptR(n,Rmid+W*0.046);
+    const inN=calc.uName.includes(n), inD=calc.uDob.includes(n);
+    const cnt=calc.counts[n]||0;
+    const alpha=inN||inD?0.88:0.18;
+    const sz=cnt>=3?W*0.052:cnt>=2?W*0.044:inN||inD?W*0.036:W*0.026;
+    ctx.save();
+    ctx.font=`${sz}px Georgia,serif`;
+    ctx.fillStyle=fgA(T,alpha);
+    if((inN||inD)&&T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=cnt>=2?16:8;}else ctx.shadowBlur=0;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(PLANET[n].split(' ')[1]||'',pt.x,pt.y);
+    if(cnt>=2){ss(W*0.003,0.50,8);ctx.beginPath();ctx.arc(pt.x,pt.y,W*0.032,0,Math.PI*2);ctx.stroke();}
+    ctx.restore();
+  }
+
+  // Maan op binnenring: echte sikkel of volle maan
+  {
+    const mIdx=SLIST.indexOf(astro.moon.n);
+    const mAng=(mIdx/12)*Math.PI*2-Math.PI/2;
+    const mx=cx+R*Math.cos(mAng), my=cy+R*Math.sin(mAng);
+    const mr=W*0.027, phase=astro.moonPhase;
+    ss(W*0.004,0.72,10);
+    if(phase<0.08||phase>0.92){
+      ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.stroke();
+      ss(W*0.002,0.32,0);ctx.beginPath();ctx.arc(mx,my,mr*0.55,0,Math.PI*2);ctx.stroke();
+    } else if(phase<0.5){
+      ctx.beginPath();ctx.arc(mx,my,mr,Math.PI*0.5,Math.PI*1.5);ctx.stroke();
+      ctx.beginPath();ctx.arc(mx+mr*0.52,my,mr*0.76,Math.PI*0.52,Math.PI*1.48);ctx.stroke();
+      ss(W*0.003,0.58,0);
+      ctx.beginPath();ctx.moveTo(mx,my-mr);ctx.lineTo(mx+mr*0.52,my-mr*0.76);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(mx,my+mr);ctx.lineTo(mx+mr*0.52,my+mr*0.76);ctx.stroke();
+    } else {
+      ctx.beginPath();ctx.arc(mx,my,mr,-Math.PI*0.5,Math.PI*0.5);ctx.stroke();
+      ctx.beginPath();ctx.arc(mx-mr*0.52,my,mr*0.76,-Math.PI*0.48,Math.PI*0.48);ctx.stroke();
+      ss(W*0.003,0.58,0);
+      ctx.beginPath();ctx.moveTo(mx,my-mr);ctx.lineTo(mx-mr*0.52,my-mr*0.76);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(mx,my+mr);ctx.lineTo(mx-mr*0.52,my+mr*0.76);ctx.stroke();
+    }
+  }
+
+  // Naam sigil pad (paars)
+  const nPts=calc.uName.map(n=>ptR(n,R));
+  if(nPts.length>=2){
+    ctx.save();
+    ctx.strokeStyle=T.sh?'rgba(160,130,220,0.20)':'rgba(80,50,160,0.14)';
+    ctx.lineWidth=W*0.022;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.shadowColor=T.sh?'#a080e0':'transparent';ctx.shadowBlur=T.sh?24:0;
+    ctx.beginPath();nPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+    ctx.strokeStyle=T.sh?'rgba(160,130,220,0.94)':T.fgP.replace('1)','0.84)');
+    ctx.lineWidth=W*0.005;ctx.shadowBlur=T.sh?14:0;
+    ctx.beginPath();nPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+    ctx.restore();
+    // Start cirkel
+    ctx.save();ctx.strokeStyle=T.sh?'rgba(160,130,220,0.9)':T.fgP.replace('1)','0.82)');
+    ctx.lineWidth=W*0.005;if(T.sh){ctx.shadowColor='#a080e0';ctx.shadowBlur=10;}
+    ctx.beginPath();ctx.arc(nPts[0].x,nPts[0].y,W*0.022,0,Math.PI*2);ctx.stroke();
+    ctx.fillStyle=T.sh?'rgba(160,130,220,0.9)':T.fgP.replace('1)','0.82)');
+    ctx.beginPath();ctx.arc(nPts[0].x,nPts[0].y,W*0.007,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+    // Eindstreep
+    if(nPts.length>1){
+      const ep=nPts[nPts.length-1],pp=nPts[nPts.length-2];
+      const ea=Math.atan2(ep.y-pp.y,ep.x-pp.x)+Math.PI/2;
+      ctx.save();ctx.strokeStyle=T.sh?'rgba(160,130,220,0.9)':T.fgP.replace('1)','0.82)');
+      ctx.lineWidth=W*0.005;if(T.sh){ctx.shadowColor='#a080e0';ctx.shadowBlur=10;}
+      ctx.beginPath();ctx.moveTo(ep.x+Math.cos(ea)*W*0.022,ep.y+Math.sin(ea)*W*0.022);ctx.lineTo(ep.x-Math.cos(ea)*W*0.022,ep.y-Math.sin(ea)*W*0.022);ctx.stroke();ctx.restore();
+    }
+  }
+
+  // Datum sigil pad (goud, iets kleiner)
+  const dPts=calc.uDob.map(n=>ptR(n,R*0.86));
+  if(dPts.length>=2){
+    ss(W*0.020,0.10,0);ctx.shadowColor=T.sh||'transparent';ctx.shadowBlur=T.sh?20:0;
+    ctx.beginPath();dPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+    ss(W*0.0048,0.90,T.sh?16:0);
+    ctx.beginPath();dPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+    const fp=dPts[0];ss(W*0.0048,0.90,T.sh?10:0);
+    ctx.beginPath();ctx.moveTo(fp.x,fp.y-W*0.020);ctx.lineTo(fp.x+W*0.014,fp.y);ctx.lineTo(fp.x,fp.y+W*0.020);ctx.lineTo(fp.x-W*0.014,fp.y);ctx.closePath();ctx.stroke();
+  }
+
+  // Driver, levenspad, bestemming: accentcirkels
+  [calc.driv,calc.life,calc.dest].forEach((n,i)=>{
+    if(!n||n===5)return;
+    const pt=ptR(n,R);
+    ss(W*0.003,[0.58,0.48,0.38][i],T.sh?8:0);
+    ctx.beginPath();ctx.arc(pt.x,pt.y,[W*0.038,W*0.030,W*0.024][i],0,Math.PI*2);ctx.stroke();
+  });
+
+  // Kinderlijnen langs de buitenring onderaan
+  const kids=state.kids||0;
+  for(let k=0;k<kids;k++){
+    const baseAng=Math.PI/2+(k-(kids-1)/2)*0.20;
+    const bx1=cx+Rout*Math.cos(baseAng), by1=cy+Rout*Math.sin(baseAng);
+    const bx2=cx+(Rout+W*0.055)*Math.cos(baseAng), by2=cy+(Rout+W*0.055)*Math.sin(baseAng);
+    ss(W*0.005,0.82,T.sh?10:0);
+    ctx.beginPath();ctx.moveTo(bx1,by1);ctx.lineTo(bx2,by2);ctx.stroke();
+  }
+
+  // Heersende planeet super licht als watermark
+  ctx.save();ctx.font=`${W*0.11}px Georgia,serif`;ctx.fillStyle=fgA(T,0.06);ctx.shadowBlur=0;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(astro.sun.r,cx,cy);ctx.restore();
+  ctx.save();ctx.font=`${W*0.055}px Georgia,serif`;ctx.fillStyle=fgA(T,0.05);ctx.shadowBlur=0;
+  ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(astro.sun.g,cx,cy+W*0.082);ctx.restore();
+
+  // Centrum punt
+  ss(W*0.005,0.62,8);ctx.beginPath();ctx.arc(cx,cy,W*0.010,0,Math.PI*2);ctx.fill();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FIGUUR-TEKENFUNCTIES per sterrenbeeld/planeet
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PLANEET FIGUREN — elke planeet als herkenbare tekening
+// ═══════════════════════════════════════════════════════════════════════════
+function drawPlanet(ctx,cx,cy,R,u,ik,gw,T,planet,scale=1.0){
+  const s=scale, r=R*s;
+  switch(planet){
+
+    case 1: // ZON ☉ — cirkel + 8 stralen afwisselend lang/kort + kleine binnencirkel
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.72,0,Math.PI*2);ctx.stroke();
+      ik(3.5*s,0.78);gw(10);
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4, long=i%2===0;
+        ctx.beginPath();
+        ctx.moveTo(cx+(r*0.76)*Math.cos(a),cy+(r*0.76)*Math.sin(a));
+        ctx.lineTo(cx+(r*(long?1.0:0.88))*Math.cos(a),cy+(r*(long?1.0:0.88))*Math.sin(a));
+        ctx.stroke();
+      }
+      ik(3*s,0.55);gw(6);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.22,0,Math.PI*2);ctx.stroke();
+      break;
+
+    case 2: // MAAN ☽ — grote wassende sikkel
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.88,Math.PI*0.48,Math.PI*1.52);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+r*0.42,cy,r*0.70,Math.PI*0.50,Math.PI*1.50);ctx.stroke();
+      ik(4.5*s,0.85);
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.88);ctx.lineTo(cx+r*0.42,cy-r*0.70);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.88);ctx.lineTo(cx+r*0.42,cy+r*0.70);ctx.stroke();
+      break;
+
+    case 3: // JUPITER ♃ — halve boog + kruis
+      ik(5.5*s,0.92);gw(20);
+      // Grote halve boog (links open)
+      ctx.beginPath();
+      ctx.moveTo(cx-r*0.32,cy-r*0.78);
+      ctx.bezierCurveTo(cx+r*0.55,cy-r*0.78,cx+r*0.62,cy,cx-r*0.08,cy+r*0.12);
+      ctx.stroke();
+      // Verticale lijn
+      ctx.beginPath();ctx.moveTo(cx-r*0.32,cy-r*0.90);ctx.lineTo(cx-r*0.32,cy+r*0.90);ctx.stroke();
+      // Horizontale arm
+      ik(4.5*s,0.85);gw(12);
+      ctx.beginPath();ctx.moveTo(cx-r*0.75,cy+r*0.18);ctx.lineTo(cx+r*0.45,cy+r*0.18);ctx.stroke();
+      break;
+
+    case 4: // RAHU ☊ — boog open naar boven + twee kleine knoopjes
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy+r*0.18,r*0.78,Math.PI,Math.PI*2);ctx.stroke();
+      ik(4*s,0.78);gw(10);
+      // Twee kleine cirkeltjes aan de uiteinden
+      ctx.beginPath();ctx.arc(cx-r*0.78,cy+r*0.18,r*0.10,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+r*0.78,cy+r*0.18,r*0.10,0,Math.PI*2);ctx.stroke();
+      // Korte vertikale lijn naar beneden
+      ik(3.5*s,0.65);
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.96);ctx.lineTo(cx,cy+r*0.18);ctx.stroke();
+      break;
+
+    case 5: // MERCURIUS ☿ — cirkel + sikkel bovenop + kruis onderaan
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.52,0,Math.PI*2);ctx.stroke();
+      // Sikkel bovenop
+      const skY=cy-r*0.62, skR=r*0.32;
+      ik(4.5*s,0.88);gw(14);
+      ctx.beginPath();ctx.arc(cx,skY,skR,Math.PI*0.12,Math.PI*0.88);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+skR*0.62,skY,skR*0.75,Math.PI*0.14,Math.PI*0.86);ctx.stroke();
+      ik(3.5*s,0.80);
+      ctx.beginPath();ctx.moveTo(cx-skR*0.97,skY);ctx.lineTo(cx-skR*0.62*0.97,skY+skR*0.24);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+skR*0.97,skY);ctx.lineTo(cx+(skR*0.62+skR*0.62*0.97),skY+skR*0.24);ctx.stroke();
+      // Kruis onderaan
+      ik(4.5*s,0.88);gw(12);
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.52);ctx.lineTo(cx,cy+r*0.92);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.30,cy+r*0.74);ctx.lineTo(cx+r*0.30,cy+r*0.74);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.18,cy+r*0.92);ctx.lineTo(cx+r*0.18,cy+r*0.92);ctx.stroke();
+      break;
+
+    case 6: // VENUS ♀ — cirkel + kruis onderaan + kleine topring
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.58,0,Math.PI*2);ctx.stroke();
+      ik(4.5*s,0.88);gw(14);
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.58);ctx.lineTo(cx,cy+r*0.95);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.34,cy+r*0.78);ctx.lineTo(cx+r*0.34,cy+r*0.78);ctx.stroke();
+      // Kleine cirkel bovenop (kenmerkend Venus)
+      ik(3.5*s,0.65);gw(8);
+      ctx.beginPath();ctx.arc(cx,cy-r*0.72,r*0.18,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.58);ctx.lineTo(cx,cy-r*0.54);ctx.stroke();
+      break;
+
+    case 7: // KETU ☋ — boog open naar beneden + twee knoopjes + pijlpunt
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy-r*0.18,r*0.78,0,Math.PI);ctx.stroke();
+      ik(4*s,0.78);gw(10);
+      ctx.beginPath();ctx.arc(cx-r*0.78,cy-r*0.18,r*0.10,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+r*0.78,cy-r*0.18,r*0.10,0,Math.PI*2);ctx.stroke();
+      ik(3.5*s,0.65);
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.96);ctx.lineTo(cx,cy-r*0.18);ctx.stroke();
+      // Pijlpunt omlaag
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.35);ctx.lineTo(cx-r*0.15,cy+r*0.12);ctx.moveTo(cx,cy+r*0.35);ctx.lineTo(cx+r*0.15,cy+r*0.12);ctx.stroke();
+      break;
+
+    case 8: // SATURNUS ♄ — cirkel + schuine ringen + kruisje onderaan
+      // Ringen achter
+      function ringS(rX,rY,rot,s2,e2,a){
+        ik(2.5*s,a);gw(a>0.5?12:3);
+        ctx.save();ctx.translate(cx,cy);ctx.rotate(rot);
+        ctx.beginPath();ctx.ellipse(0,0,rX,rY,0,s2,e2);ctx.stroke();ctx.restore();
+      }
+      ringS(r*1.85,r*0.32,-0.22,Math.PI*0.04,Math.PI*0.96,0.22);
+      ringS(r*2.18,r*0.40,-0.22,Math.PI*0.04,Math.PI*0.96,0.16);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.88,0,Math.PI*2);ctx.fillStyle=T.bg;ctx.fill();
+      ik(5.5*s,0.92);gw(20);ctx.beginPath();ctx.arc(cx,cy,r*0.88,0,Math.PI*2);ctx.stroke();
+      ringS(r*1.85,r*0.32,-0.22,Math.PI*0.96,Math.PI*2.04,0.88);
+      ringS(r*2.18,r*0.40,-0.22,Math.PI*0.96,Math.PI*2.04,0.72);
+      // Kruisje onderaan
+      ik(4.5*s,0.88);gw(12);
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.88);ctx.lineTo(cx,cy+r*1.15);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.28,cy+r*1.02);ctx.lineTo(cx+r*0.28,cy+r*1.02);ctx.stroke();
+      break;
+
+    case 9: // MARS ♂ — cirkel + pijl diagonaal rechtsboven
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.65,0,Math.PI*2);ctx.stroke();
+      const pA=-Math.PI*0.38;
+      ik(5*s,0.88);gw(14);
+      ctx.beginPath();ctx.moveTo(cx+r*0.65*Math.cos(pA+Math.PI),cy+r*0.65*Math.sin(pA+Math.PI));
+      ctx.lineTo(cx+r*Math.cos(pA),cy+r*Math.sin(pA));ctx.stroke();
+      const px2=cx+r*Math.cos(pA), py2=cy+r*Math.sin(pA);
+      ctx.beginPath();ctx.moveTo(px2,py2);ctx.lineTo(px2-r*0.22*Math.cos(pA-0.55),py2-r*0.22*Math.sin(pA-0.55));ctx.stroke();
+      ctx.beginPath();ctx.moveTo(px2,py2);ctx.lineTo(px2-r*0.22*Math.cos(pA+0.55),py2-r*0.22*Math.sin(pA+0.55));ctx.stroke();
+      break;
+
+    default: // Fallback: grote cirkel
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.90,0,Math.PI*2);ctx.stroke();
+  }
+}
+
+// Uranus, Neptunus, Pluto als extra planetaire vormen
+function drawPlanetExtra(ctx,cx,cy,R,u,ik,gw,T,name,scale=1.0){
+  const s=scale, r=R*s;
+  switch(name){
+    case 'Uranus': // ♅ H-vorm met cirkel in midden + pijl omhoog
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.28,0,Math.PI*2);ctx.stroke();
+      ik(4.5*s,0.85);gw(12);
+      ctx.beginPath();ctx.moveTo(cx-r*0.72,cy-r*0.65);ctx.lineTo(cx-r*0.72,cy+r*0.65);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+r*0.72,cy-r*0.65);ctx.lineTo(cx+r*0.72,cy+r*0.65);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.72,cy);ctx.lineTo(cx-r*0.28,cy);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+r*0.72,cy);ctx.lineTo(cx+r*0.28,cy);ctx.stroke();
+      // Pijl omhoog
+      ik(4*s,0.78);gw(10);
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.28);ctx.lineTo(cx,cy-r*0.95);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.95);ctx.lineTo(cx-r*0.18,cy-r*0.72);ctx.moveTo(cx,cy-r*0.95);ctx.lineTo(cx+r*0.18,cy-r*0.72);ctx.stroke();
+      break;
+    case 'Neptunus': // ♆ drietand + twee bogen
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy-r*0.32,r*0.55,0,Math.PI);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx,cy+r*0.32,r*0.55,Math.PI,Math.PI*2);ctx.stroke();
+      ik(4.5*s,0.85);gw(12);
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.87);ctx.lineTo(cx,cy+r*0.87);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.52,cy-r*0.10);ctx.lineTo(cx+r*0.52,cy-r*0.10);ctx.stroke();
+      // Drietand bovenin
+      ik(3.5*s,0.75);gw(8);
+      [-r*0.40,0,r*0.40].forEach(ox=>{
+        ctx.beginPath();ctx.moveTo(cx+ox,cy-r*0.10);ctx.lineTo(cx+ox,cy-r*0.52);ctx.stroke();
+      });
+      ctx.beginPath();ctx.moveTo(cx,cy-r*0.52);ctx.lineTo(cx-r*0.15,cy-r*0.34);ctx.moveTo(cx,cy-r*0.52);ctx.lineTo(cx+r*0.15,cy-r*0.34);ctx.stroke();
+      break;
+    case 'Pluto': // ♇ cirkel + maan bovenop + kruis onderaan (zwaarder dan Mercurius)
+      ik(5.5*s,0.92);gw(20);
+      ctx.beginPath();ctx.arc(cx,cy,r*0.50,0,Math.PI*2);ctx.stroke();
+      // Maan bovenop (open naar boven)
+      const pY=cy-r*0.78;
+      ik(5*s,0.88);gw(16);
+      ctx.beginPath();ctx.arc(cx,pY,r*0.38,Math.PI,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.38,pY);ctx.lineTo(cx-r*0.38,cy-r*0.50);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+r*0.38,pY);ctx.lineTo(cx+r*0.38,cy-r*0.50);ctx.stroke();
+      // Kruis onderaan
+      ik(4.5*s,0.88);gw(12);
+      ctx.beginPath();ctx.moveTo(cx,cy+r*0.50);ctx.lineTo(cx,cy+r*0.95);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.32,cy+r*0.75);ctx.lineTo(cx+r*0.32,cy+r*0.75);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-r*0.18,cy+r*0.95);ctx.lineTo(cx+r*0.18,cy+r*0.95);ctx.stroke();
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STERRENBEELD DETAILS — bovenaan/onderaan de centrale figuur
+// ═══════════════════════════════════════════════════════════════════════════
+function drawSignDetails(ctx,cx,cy,R,u,ik,gw,sign){
+  const topY=cy-R*0.92, botY=cy+R*0.92;
+
+  switch(sign){
+    case 'Ram': // ♈ — twee hoorns naar buiten + pijlpunt omhoog
+      ik(4.5,0.88);gw(14);
+      // Linkerhoorn (naar links-boven, geen brug)
+      ctx.beginPath();ctx.moveTo(cx-R*0.12,topY+R*0.05);
+      ctx.bezierCurveTo(cx-R*0.25,topY-R*0.18,cx-R*0.52,topY-R*0.28,cx-R*0.48,topY+R*0.05);ctx.stroke();
+      // Rechterhoorn
+      ctx.beginPath();ctx.moveTo(cx+R*0.12,topY+R*0.05);
+      ctx.bezierCurveTo(cx+R*0.25,topY-R*0.18,cx+R*0.52,topY-R*0.28,cx+R*0.48,topY+R*0.05);ctx.stroke();
+      // Pijlpunt omhoog tussen hoorns
+      ik(4,0.80);gw(10);
+      ctx.beginPath();ctx.moveTo(cx,topY+R*0.10);ctx.lineTo(cx,topY-R*0.22);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx,topY-R*0.22);ctx.lineTo(cx-R*0.12,topY-R*0.05);ctx.moveTo(cx,topY-R*0.22);ctx.lineTo(cx+R*0.12,topY-R*0.05);ctx.stroke();
+      break;
+
+    case 'Stier': // ♉ — hoekige hoorns + ronde neus bovenaan + vissenstaart onderaan
+      ik(4.5,0.88);gw(14);
+      // Kleine cirkel (neus/hoofd) bovenaan
+      ctx.beginPath();ctx.arc(cx,topY+R*0.10,R*0.15,0,Math.PI*2);ctx.stroke();
+      // Hoorns rechthoekig omhoog
+      ctx.beginPath();ctx.moveTo(cx-R*0.15,topY+R*0.10);ctx.lineTo(cx-R*0.38,topY-R*0.22);ctx.lineTo(cx-R*0.52,topY-R*0.22);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.15,topY+R*0.10);ctx.lineTo(cx+R*0.38,topY-R*0.22);ctx.lineTo(cx+R*0.52,topY-R*0.22);ctx.stroke();
+      // Vissenstaart onderaan
+      _drawFishTail(ctx,cx,botY,R,ik,gw);
+      break;
+
+    case 'Tweelingen': // ♊ — twee parallelle lijnen + horizontale verbindingen
+      ik(4.5,0.88);gw(12);
+      ctx.beginPath();ctx.moveTo(cx-R*0.28,topY+R*0.05);ctx.lineTo(cx-R*0.28,topY-R*0.38);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.28,topY+R*0.05);ctx.lineTo(cx+R*0.28,topY-R*0.38);ctx.stroke();
+      // Verbindingsbalken
+      ctx.beginPath();ctx.moveTo(cx-R*0.28,topY-R*0.38);ctx.lineTo(cx+R*0.28,topY-R*0.38);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-R*0.28,topY-R*0.18);ctx.lineTo(cx+R*0.28,topY-R*0.18);ctx.stroke();
+      // Onderaan ook twee lijntjes
+      ctx.beginPath();ctx.moveTo(cx-R*0.28,botY-R*0.05);ctx.lineTo(cx-R*0.28,botY+R*0.22);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.28,botY-R*0.05);ctx.lineTo(cx+R*0.28,botY+R*0.22);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-R*0.28,botY+R*0.22);ctx.lineTo(cx+R*0.28,botY+R*0.22);ctx.stroke();
+      break;
+
+    case 'Kreeft': // ♋ — twee spiraalklauwen aan weerszijden
+      ik(4.5,0.88);gw(14);
+      // Linker klauw
+      ctx.beginPath();ctx.moveTo(cx-R*0.85,cy-R*0.10);
+      ctx.bezierCurveTo(cx-R*1.05,cy-R*0.38,cx-R*0.92,cy-R*0.62,cx-R*0.68,cy-R*0.50);
+      ctx.bezierCurveTo(cx-R*0.48,cy-R*0.38,cx-R*0.55,cy-R*0.12,cx-R*0.72,cy-R*0.05);ctx.stroke();
+      // Rechter klauw
+      ctx.beginPath();ctx.moveTo(cx+R*0.85,cy-R*0.10);
+      ctx.bezierCurveTo(cx+R*1.05,cy-R*0.38,cx+R*0.92,cy-R*0.62,cx+R*0.68,cy-R*0.50);
+      ctx.bezierCurveTo(cx+R*0.48,cy-R*0.38,cx+R*0.55,cy-R*0.12,cx+R*0.72,cy-R*0.05);ctx.stroke();
+      break;
+
+    case 'Leeuw': // ♌ — manen-krullen links+rechts + staartpunt onderaan
+      ik(4.5,0.88);gw(14);
+      // Drie maankrullen links
+      [-R*0.25,-R*0.45,-R*0.62].forEach((oy,i)=>{
+        ctx.beginPath();ctx.moveTo(cx-R*0.88,cy+oy);
+        ctx.bezierCurveTo(cx-R*(1.12-i*0.05),cy+oy-R*0.15,cx-R*(1.05-i*0.05),cy+oy+R*0.12,cx-R*0.88,cy+oy+R*0.08);ctx.stroke();
+      });
+      // Drie maankrullen rechts
+      [-R*0.25,-R*0.45,-R*0.62].forEach((oy,i)=>{
+        ctx.beginPath();ctx.moveTo(cx+R*0.88,cy+oy);
+        ctx.bezierCurveTo(cx+R*(1.12-i*0.05),cy+oy-R*0.15,cx+R*(1.05-i*0.05),cy+oy+R*0.12,cx+R*0.88,cy+oy+R*0.08);ctx.stroke();
+      });
+      // Staartpunt onderaan
+      ik(3.5,0.72);gw(8);
+      ctx.beginPath();ctx.moveTo(cx,botY);ctx.bezierCurveTo(cx+R*0.18,botY+R*0.15,cx+R*0.28,botY+R*0.28,cx+R*0.22,botY+R*0.40);ctx.stroke();
+      break;
+
+    case 'Maagd': // ♍ — gestileerde M + terugkrullend puntje rechts
+      ik(4.5,0.88);gw(12);
+      ctx.beginPath();
+      ctx.moveTo(cx-R*0.42,topY-R*0.05);
+      ctx.lineTo(cx-R*0.42,topY-R*0.42);
+      ctx.bezierCurveTo(cx-R*0.42,topY-R*0.60,cx-R*0.14,topY-R*0.60,cx-R*0.14,topY-R*0.42);
+      ctx.lineTo(cx-R*0.14,topY-R*0.20);
+      ctx.bezierCurveTo(cx-R*0.14,topY-R*0.60,cx+R*0.14,topY-R*0.60,cx+R*0.14,topY-R*0.42);
+      ctx.lineTo(cx+R*0.14,topY-R*0.20);
+      ctx.bezierCurveTo(cx+R*0.14,topY-R*0.55,cx+R*0.42,topY-R*0.55,cx+R*0.42,topY-R*0.38);
+      ctx.stroke();
+      // Terugkrullend puntje
+      ctx.beginPath();ctx.moveTo(cx+R*0.42,topY-R*0.38);
+      ctx.bezierCurveTo(cx+R*0.52,topY-R*0.18,cx+R*0.60,topY-R*0.05,cx+R*0.55,topY+R*0.08);
+      ctx.bezierCurveTo(cx+R*0.48,topY+R*0.18,cx+R*0.35,topY+R*0.10,cx+R*0.38,topY-R*0.02);ctx.stroke();
+      break;
+
+    case 'Weegschaal': // ♎ — horizontale balk + twee hangpunten + bolletje boven midden
+      ik(4.5,0.88);gw(12);
+      ctx.beginPath();ctx.moveTo(cx-R*0.55,topY-R*0.18);ctx.lineTo(cx+R*0.55,topY-R*0.18);ctx.stroke();
+      // Kleine halve cirkel boven de balk
+      ctx.beginPath();ctx.arc(cx,topY-R*0.30,R*0.18,-Math.PI,0);ctx.stroke();
+      // Twee hangpunten onderaan de balk
+      ik(3.5,0.78);gw(8);
+      ctx.beginPath();ctx.moveTo(cx-R*0.38,topY-R*0.18);ctx.lineTo(cx-R*0.38,topY+R*0.08);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.38,topY-R*0.18);ctx.lineTo(cx+R*0.38,topY+R*0.08);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-R*0.50,topY+R*0.08);ctx.lineTo(cx-R*0.26,topY+R*0.08);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.26,topY+R*0.08);ctx.lineTo(cx+R*0.50,topY+R*0.08);ctx.stroke();
+      break;
+
+    case 'Schorpioen': // ♏ — M-vorm + opstaande angel met pijlpunt
+      ik(4.5,0.88);gw(14);
+      // M-vorm
+      ctx.beginPath();
+      ctx.moveTo(cx-R*0.55,botY-R*0.05);ctx.lineTo(cx-R*0.55,botY+R*0.28);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-R*0.55,botY+R*0.28);
+      ctx.bezierCurveTo(cx-R*0.55,botY+R*0.48,cx-R*0.18,botY+R*0.48,cx-R*0.18,botY+R*0.28);
+      ctx.lineTo(cx-R*0.18,botY+R*0.10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx-R*0.18,botY+R*0.28);
+      ctx.bezierCurveTo(cx-R*0.18,botY+R*0.48,cx+R*0.18,botY+R*0.48,cx+R*0.18,botY+R*0.28);
+      ctx.lineTo(cx+R*0.18,botY+R*0.10);
+      ctx.stroke();
+      // Angel omhoog met pijlpunt
+      ctx.beginPath();ctx.moveTo(cx+R*0.18,botY+R*0.28);
+      ctx.bezierCurveTo(cx+R*0.40,botY+R*0.48,cx+R*0.58,botY+R*0.38,cx+R*0.55,botY+R*0.05);
+      ctx.bezierCurveTo(cx+R*0.52,botY-R*0.18,cx+R*0.45,botY-R*0.35,cx+R*0.55,botY-R*0.55);
+      ctx.stroke();
+      // Pijlpunt
+      ctx.beginPath();ctx.moveTo(cx+R*0.55,botY-R*0.55);ctx.lineTo(cx+R*0.40,botY-R*0.40);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.55,botY-R*0.55);ctx.lineTo(cx+R*0.65,botY-R*0.38);ctx.stroke();
+      break;
+
+    case 'Boogschutter': // ♐ — grote pijl diagonaal omhoog + boogvorm
+      ik(4.5,0.85);gw(14);
+      // Grote pijl omhoog-rechts
+      ctx.beginPath();ctx.moveTo(cx-R*0.42,botY+R*0.10);ctx.lineTo(cx+R*0.42,topY-R*0.28);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.42,topY-R*0.28);ctx.lineTo(cx+R*0.18,topY-R*0.05);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx+R*0.42,topY-R*0.28);ctx.lineTo(cx+R*0.58,topY-R*0.45);ctx.stroke();
+      // Boogvorm
+      ik(3.5,0.70);gw(8);
+      ctx.beginPath();ctx.moveTo(cx-R*0.55,botY+R*0.15);
+      ctx.bezierCurveTo(cx-R*0.65,cy,cx-R*0.58,topY+R*0.10,cx-R*0.32,topY-R*0.22);ctx.stroke();
+      break;
+
+    case 'Steenbok': // ♑ — hoorns + brug + vissenstaart
+      ik(4.5,0.88);gw(14);
+      const hXL=cx-R*0.62, hXR=cx+R*0.62, hH=R*0.55, hW=R*0.50;
+      ctx.beginPath();ctx.moveTo(hXL,topY+R*0.05);
+      ctx.bezierCurveTo(hXL-R*0.08,topY-hH*0.5,hXL-hW,topY-hH*0.82,hXL-hW*0.88,topY-hH*0.30);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(hXR,topY+R*0.05);
+      ctx.bezierCurveTo(hXR+R*0.08,topY-hH*0.5,hXR+hW,topY-hH*0.82,hXR+hW*0.88,topY-hH*0.30);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(hXL,topY+R*0.05);
+      ctx.bezierCurveTo(hXL+R*0.20,topY+R*0.18,hXR-R*0.20,topY+R*0.18,hXR,topY+R*0.05);ctx.stroke();
+      _drawFishTail(ctx,cx,botY,R,ik,gw);
+      break;
+
+    case 'Waterman': // ♒ — twee golflijnen parallel
+      ik(4.5,0.88);gw(12);
+      _drawWaveLine(ctx,cx,topY-R*0.15,R,ik);
+      _drawWaveLine(ctx,cx,topY-R*0.38,R,ik);
+      break;
+
+    case 'Vissen': // ♓ — twee gebogen bogen tegengesteld + verbindingslijn
+      ik(4.5,0.88);gw(14);
+      // Boog open naar links
+      ctx.beginPath();ctx.arc(cx-R*0.12,topY-R*0.05,R*0.30,Math.PI*0.5,Math.PI*1.5);ctx.stroke();
+      // Boog open naar rechts
+      ctx.beginPath();ctx.arc(cx+R*0.12,topY-R*0.05,R*0.30,-Math.PI*0.5,Math.PI*0.5);ctx.stroke();
+      // Verbindingslijn
+      ctx.beginPath();ctx.moveTo(cx-R*0.42,topY-R*0.05);ctx.lineTo(cx+R*0.42,topY-R*0.05);ctx.stroke();
+      // Onderaan ook
+      ctx.beginPath();ctx.arc(cx-R*0.12,botY+R*0.05,R*0.30,Math.PI*0.5,Math.PI*1.5);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+R*0.12,botY+R*0.05,R*0.30,-Math.PI*0.5,Math.PI*0.5);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-R*0.42,botY+R*0.05);ctx.lineTo(cx+R*0.42,botY+R*0.05);ctx.stroke();
+      break;
+  }
+}
+
+// Herbruikbare vissenstaart
+function _drawFishTail(ctx,cx,botY,R,ik,gw){
+  ik(4.2,0.85);gw(12);
+  const tH=R*0.48,tW=R*0.42;
+  ctx.beginPath();ctx.moveTo(cx-tW*0.62,botY);
+  ctx.bezierCurveTo(cx-tW*0.92,botY+tH*0.30,cx-tW,botY+tH*0.62,cx-tW*0.40,botY+tH*0.88);
+  ctx.bezierCurveTo(cx-tW*0.12,botY+tH,cx+tW*0.12,botY+tH*0.88,cx,botY+tH*0.70);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+tW*0.62,botY);
+  ctx.bezierCurveTo(cx+tW*0.92,botY+tH*0.30,cx+tW,botY+tH*0.62,cx+tW*0.40,botY+tH*0.88);
+  ctx.bezierCurveTo(cx+tW*0.12,botY+tH,cx-tW*0.12,botY+tH*0.88,cx,botY+tH*0.70);ctx.stroke();
+}
+
+// Herbruikbare golflijn
+function _drawWaveLine(ctx,cx,y,R,ik){
+  const startX=cx-R*0.62, endX=cx+R*0.62, w=R*0.30;
+  ctx.beginPath();ctx.moveTo(startX,y);
+  ctx.bezierCurveTo(startX+w*0.5,y-R*0.12,startX+w,y-R*0.12,startX+w*1.0,y);
+  ctx.bezierCurveTo(startX+w*1.5,y+R*0.12,startX+w*2,y+R*0.12,endX,y);
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HOOFD SIGIL FIGUREN — data-gedreven compositie
+// ═══════════════════════════════════════════════════════════════════════════
+function drawSigilFigures(ctx,cx,cy,W,T,astro,calc){
+  const u=W/500;
+  const R=W*0.39; // werkradius
+
+  function gw(b){ctx.shadowColor=T.sh||'transparent';ctx.shadowBlur=T.sh?b:0;}
+  function ik(lw,a){ctx.strokeStyle=fgA(T,a);ctx.fillStyle=fgA(T,a);ctx.lineWidth=lw*u;ctx.lineCap='round';ctx.lineJoin='round';}
+
+  // ── DOMINANTE PLANEET(EN) bepalen via Lo Shu counts
+  const sorted=Object.entries(calc.counts)
+    .map(([k,v])=>({n:parseInt(k),cnt:v}))
+    .sort((a,b)=>b.cnt-a.cnt);
+
+  const maxCnt=sorted[0].cnt;
+  // Alle planeten met het maximale aantal (kunnen er meerdere zijn)
+  const dominants=sorted.filter(x=>x.cnt===maxCnt&&x.cnt>0).map(x=>x.n);
+  // Als alles 0 is (zeer korte datum), gebruik driver + levenspad
+  const primary=dominants.length>0?dominants[0]:calc.driv;
+  const secondary=dominants.length>1?dominants[1]:(dominants[0]!==calc.life?calc.life:calc.driv);
+  const hasDouble=dominants.length>1;
+
+  // ── CENTRALE FIGUUR (primaire planeet)
+  const Rprim=hasDouble?R*0.82:R*0.95;
+  drawPlanet(ctx,cx,cy,Rprim,u,ik,gw,T,primary,1.0);
+
+  // ── SECUNDAIRE PLANEET (indien even dominant) — kleiner, erin verweven
+  if(hasDouble&&secondary!==primary){
+    // Positie: iets verschoven zodat het niet exact overlapt
+    const offX=Rprim*0.18, offY=-Rprim*0.10;
+    drawPlanet(ctx,cx+offX,cy+offY,Rprim*0.52,u,ik,gw,T,secondary,0.52);
+  }
+
+  // ── STERRENBEELDDETAILS (bovenaan/onderaan de centrale figuur)
+  drawSignDetails(ctx,cx,cy,Rprim,u,ik,gw,astro.sun.n);
+
+  // ── MAANSIKKEL als apart element (positie = maanteken op de ring)
+  const SLIST=['Ram','Stier','Tweelingen','Kreeft','Leeuw','Maagd',
+               'Weegschaal','Schorpioen','Boogschutter','Steenbok','Waterman','Vissen'];
+  if(astro.sun.n!=='Kreeft'||primary!==2){
+    const mIdx=SLIST.indexOf(astro.moon.n);
+    if(mIdx>=0){
+      const mAng=(mIdx/12)*Math.PI*2-Math.PI/2;
+      const mDist=R*0.55+Rprim*0.62;
+      const mx=cx+mDist*Math.cos(mAng), my=cy+mDist*Math.sin(mAng);
+      const mr=W*0.055, mSh=W*0.024, phase=astro.moonPhase;
+      ik(3.5,0.82);gw(14);
+      if(phase<0.08||phase>0.92){
+        // Volle maan
+        ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.stroke();
+        ik(2.5,0.42);ctx.beginPath();ctx.arc(mx,my,mr*0.50,0,Math.PI*2);ctx.stroke();
+      } else if(phase<0.5){
+        // Wassend (open rechts)
+        ctx.beginPath();ctx.arc(mx,my,mr,Math.PI*0.5,Math.PI*1.5);ctx.stroke();
+        ctx.beginPath();ctx.arc(mx+mSh,my,mr*0.76,Math.PI*0.52,Math.PI*1.48);ctx.stroke();
+        ik(3,0.70);
+        ctx.beginPath();ctx.moveTo(mx,my-mr);ctx.lineTo(mx+mSh,my-mr*0.76);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(mx,my+mr);ctx.lineTo(mx+mSh,my+mr*0.76);ctx.stroke();
+      } else {
+        // Afnemend (open links)
+        ctx.beginPath();ctx.arc(mx,my,mr,-Math.PI*0.5,Math.PI*0.5);ctx.stroke();
+        ctx.beginPath();ctx.arc(mx-mSh,my,mr*0.76,-Math.PI*0.48,Math.PI*0.48);ctx.stroke();
+        ik(3,0.70);
+        ctx.beginPath();ctx.moveTo(mx,my-mr);ctx.lineTo(mx-mSh,my-mr*0.76);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(mx,my+mr);ctx.lineTo(mx-mSh,my+mr*0.76);ctx.stroke();
+      }
+    }
+  }
+
+  // ── ASCENDANT GLYPH op buitenrand (indien uur bekend)
+  if(astro.asc&&astro.asc.n!==astro.sun.n){
+    const aIdx=SLIST.indexOf(astro.asc.n);
+    if(aIdx>=0){
+      const aAng=(aIdx/12)*Math.PI*2-Math.PI/2;
+      const aDist=R*0.62+Rprim*0.62;
+      const ax=cx+aDist*Math.cos(aAng), ay=cy+aDist*Math.sin(aAng);
+      ctx.save();ctx.font=`${W*0.055}px Georgia,serif`;
+      ctx.fillStyle=fgA(T,0.62);
+      if(T.sh){ctx.shadowColor=T.sh;ctx.shadowBlur=12;}else ctx.shadowBlur=0;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(astro.asc.g,ax,ay);ctx.restore();
+    }
+  }
+
+  // ── SATURNUS-RINGVLEKKEN (enkel als Saturnus primair/secundair is)
+  if(primary===8||(hasDouble&&secondary===8)){
+    const ringR=primary===8?Rprim*0.92:Rprim*0.55;
+    [{a:148,rw:20,rh:10},{a:168,rw:18,rh:9},{a:18,rw:20,rh:10},{a:38,rw:18,rh:9}].forEach(({a,rw,rh})=>{
+      const rad=(a-90)*Math.PI/180;
+      ctx.save();ctx.translate(cx+ringR*Math.cos(rad),cy+ringR*Math.sin(rad));ctx.rotate(rad+Math.PI/2);
+      ctx.beginPath();ctx.ellipse(0,0,rw*u,rh*u,0,0,Math.PI*2);
+      ctx.fillStyle=fgA(T,0.72);ctx.shadowColor=T.sh||'transparent';ctx.shadowBlur=T.sh?8:0;ctx.fill();ctx.restore();
+    });
+  }
+
+  // ── NAAMSYMBOOL PAD geïntegreerd binnenin
+  const R2=W*0.255;
+  function ptN2(num){if(num===5)return{x:cx,y:cy};const d=(ANG[num]-90)*Math.PI/180;return{x:cx+R2*Math.cos(d),y:cy+R2*Math.sin(d)};}
+  const nPts=calc.uName.map(n=>ptN2(n));
+  if(nPts.length>=2){
+    ctx.save();
+    ctx.strokeStyle=T.sh?'rgba(160,130,220,0.18)':'rgba(80,50,160,0.12)';
+    ctx.lineWidth=W*0.018;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.shadowColor=T.sh?'#a080e0':'transparent';ctx.shadowBlur=T.sh?22:0;
+    ctx.beginPath();nPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+    ctx.strokeStyle=T.sh?'rgba(160,130,220,0.84)':T.fgP.replace('1)','0.76)');
+    ctx.lineWidth=W*0.0045;ctx.shadowBlur=T.sh?14:0;
+    ctx.beginPath();nPts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.stroke();
+    ctx.strokeStyle=T.sh?'rgba(160,130,220,0.88)':T.fgP.replace('1)','0.78)');
+    ctx.lineWidth=W*0.004;ctx.shadowBlur=T.sh?10:0;
+    ctx.beginPath();ctx.arc(nPts[0].x,nPts[0].y,W*0.018,0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── KINDERLIJNEN (verticaal, links en rechts)
+  const kids=state.kids||0;
+  ik(6.5,0.88);gw(14);
+  if(kids>=1){ctx.beginPath();ctx.moveTo(cx-R*0.58-W*0.020,cy-W*0.14);ctx.bezierCurveTo(cx-R*0.58-W*0.024,cy-W*0.04,cx-R*0.58-W*0.022,cy+W*0.06,cx-R*0.58-W*0.018,cy+W*0.16);ctx.stroke();}
+  if(kids>=2){ctx.beginPath();ctx.moveTo(cx+R*0.58+W*0.020,cy-W*0.14);ctx.bezierCurveTo(cx+R*0.58+W*0.024,cy-W*0.04,cx+R*0.58+W*0.022,cy+W*0.06,cx+R*0.58+W*0.018,cy+W*0.16);ctx.stroke();}
+  for(let k=3;k<=kids;k++){
+    ik(4.5,0.65);gw(8);
+    const ox=k%2===1?-(R*0.58+W*0.050):(R*0.58+W*0.050);
+    const oy=-W*0.08+(k-3)*W*0.045;
+    ctx.beginPath();ctx.moveTo(cx+ox,cy+oy);ctx.lineTo(cx+ox,cy+oy+W*0.088);ctx.stroke();
+  }
+
+  // ── CENTRUM STIP
+  ik(4,0.65);gw(8);ctx.beginPath();ctx.arc(cx,cy,5*u,0,Math.PI*2);ctx.fill();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3. DECORATIEF SIGIL — volledig data-gedreven per persoon
+// ═══════════════════════════════════════════════════════════════════════════
+function drawDecorSigil(canvas,mode){
+  const calc=calcAll(), astro=getAstro();
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height, T=themeColors(mode);
+  const cx=W/2, cy=H/2;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+  if(T.sh){const g=ctx.createRadialGradient(cx,cy,0,cx,cy,W*0.52);g.addColorStop(0,'rgba(212,168,75,0.07)');g.addColorStop(1,'transparent');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+  drawSigilFigures(ctx,cx,cy,W,T,astro,calc);
+}
+// 4. UITLEG (canvas voor download)
+// ═══════════════════════════════════════════════════════════════════════════
+function buildUitlegCards() {
+  const calc = calcAll();
+  const {name,day,month,year,hour,place,theme,notes,kids} = state;
+
+  // Bepaal sterrenbeeld
+  function zodiac(d,m){
+    const z=[['Steenbok','♑',20,1],['Waterman','♒',19,2],['Vissen','♓',20,3],['Ram','♈',20,4],
+             ['Stier','♉',21,5],['Tweelingen','♊',21,6],['Kreeft','♋',23,7],['Leeuw','♌',23,8],
+             ['Maagd','♍',23,9],['Weegschaal','♎',24,10],['Schorpioen','♏',22,11],['Boogschutter','♐',22,12],['Steenbok','♑',31,12]];
+    for(const [n,g,dd,mm] of z){ if(m===mm&&d<=dd) return [n,g]; if(m<mm) return [z[z.indexOf(z.find(x=>x[3]===mm))-1]?.[0]||'',z[z.indexOf(z.find(x=>x[3]===mm))-1]?.[1]||'']; }
+    return ['Steenbok','♑'];
+  }
+  const [zName, zGlyph] = zodiac(day,month);
+
+  // Planeetenergieën in sigil
+  const energies = [...new Set([...calc.uName,...calc.uDob])].slice(0,5);
+
+  const cards = [];
+
+  cards.push({
+    title: `${zGlyph} ${zName} — Zonneteken`,
+    text: `Het zonneteken ${zName} vormt de spirituele signatuur van ${name}. ` +
+      (zName==='Steenbok'?`Steenbok is een aardteken, geregeerd door Saturnus. Het draagt de energie van geduld, doorzettingsvermogen en diepe structuur. Steenbok-zielen groeien door vallen en opstaan, en bouwen met iedere stap aan iets dat blijft.`:
+       zName==='Schorpioen'?`Schorpioen is een waterteken, geregeerd door Pluto en Mars. Het draagt de energie van transformatie, diepgang en wedergeboorte. Schorpioen-zielen kennen de schaduwen en vinden daarin hun kracht.`:
+       zName==='Waterman'?`Waterman is een luchtteken, geregeerd door Uranus. Het draagt de energie van vernieuwing, vrijheid en broederschap. Waterman-zielen zijn vooruitdenkers die hun eigen pad gaan.`:
+       zName==='Vissen'?`Vissen is een waterteken, geregeerd door Neptunus. Het draagt de energie van mededogen, intuïtie en spirituele verbinding. Vissen-zielen bewegen tussen werelden.`:
+       `${zName} draagt een unieke kosmische energie die diep verbonden is met de zielsmissie van ${name}.`)
+  });
+
+  cards.push({
+    title: `☿ Mercurius — Communicatie & Geest`,
+    text: `Mercurius speelt een centrale rol in dit sigil als drager van mentale helderheid en communicatiekracht. De Mercurius-energie nodigt ${name} uit om de eigen stem te vertrouwen — in woord, in gedachte, in creativiteit. Waar Mercurius sterk aanwezig is, bloeit de verbinding met anderen.`
+  });
+
+  cards.push({
+    title: `☽ Maan — Levenspad & Intuïtie`,
+    text: `De Maan is jouw levenspad-energie (getal ${calc.life}). Ze vertegenwoordigt het innerlijke ritme, de gevoelswereld en het vermogen om mee te bewegen met de cycli van het leven. ${PLANET_MEANING[calc.life]} Voor ${name} betekent dit een reis van ${['','zelfontdekking','verbinding','uitdrukking','structuur','vrijheid','harmonie','innerlijk weten','meesterschap','zuivere daadkracht'][calc.life]||'groei'}.`
+  });
+
+  cards.push({
+    title: `♄ Saturnus — Structuur & Groei`,
+    text: `Saturnus als heerser van Steenbok en als element van het sigil herinnert ons aan de kracht van geduld en langdurige groei. Saturnus vraagt niet naar snelle resultaten — hij beloont wat met toewijding wordt gebouwd. Voor ${name} is dit een uitnodiging om de eigen structuur te vertrouwen en stap voor stap te bouwen.`
+  });
+
+  if(energies.length>2){
+    const extraPlanets = energies.filter(n=>n!==calc.driv&&n!==calc.life).slice(0,2);
+    if(extraPlanets.length){
+      const names=extraPlanets.map(n=>PLANET[n]).join(' en ');
+      cards.push({
+        title: `Planetaire energieën in het sigil`,
+        text: `Het persoonlijke sigil van ${name} draagt ook de energieën van ${names}. ${extraPlanets.map(n=>PLANET_MEANING[n]).join(' ')} Deze energieën vormen samen een unieke kosmische code.`
+      });
+    }
+  }
+
+  if(calc.missing.length>0&&calc.missing.length<=4){
+    const missingNames=calc.missing.map(n=>PLANET[n]).join(', ');
+    cards.push({
+      title: `Ontbrekende energieën — Groeipotentieel`,
+      text: `In het numerologische patroon van ${name} zijn de energieën van ${missingNames} minder aanwezig. In numerologie worden ontbrekende getallen gezien als uitnodigingen — domeinen waar bewuste aandacht en groei mogelijk is. Niet als tekort, maar als richting.`
+    });
+  }
+
+  if(theme){
+    cards.push({
+      title: `✦ Thema: ${theme}`,
+      text: `Het gekozen thema '${theme}' is de intentie die dit sigil draagt. In combinatie met de kosmische energie van ${name} wordt dit sigil een persoonlijk anker — een symbool dat herinnert aan de diepste bedoeling van dit moment in het leven.`
+    });
+  }
+
+  if(kids>0){
+    const k=kids===1?'één kind':kids===2?'twee kinderen':`${kids} kinderen`;
+    cards.push({
+      title: `De lijnen van liefde`,
+      text: `In het sigil zijn ${k} opgenomen als stille getuigen — verticale lijnen die de verbindingen van het hart vertegenwoordigen. Elk kind draagt zijn eigen energie en is tegelijk deel van het grotere geheel van ${name}'s levenspad.`
+    });
+  }
+
+  if(notes){
+    cards.push({
+      title: `Persoonlijke intentie`,
+      text: notes
+    });
+  }
+
+  return cards;
+}
+
+function renderUitlegCards(cards) {
+  const wrap = document.getElementById('uitleg-cards');
+  wrap.innerHTML = '';
+  cards.forEach(({title,text}) => {
+    const div = document.createElement('div');
+    div.className = 'uitleg-card';
+    div.innerHTML = `<h3>${title}</h3><p>${text}</p>`;
+    wrap.appendChild(div);
+  });
+}
+
+function drawUitlegCanvas() {
+  const calc = calcAll();
+  const canvas = document.getElementById('cv-uitleg');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const T = themeColors(state.style||'white');
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+
+  const m=48, lh=32, colGold=T.sh?'rgba(212,168,75,1)':'rgba(140,95,0,1)';
+  const colText=T.fg.replace('0.92)','0.82)').replace('0.90)','0.82)');
+  const colDim=T.fg.replace(/[\d.]+\)$/,'0.42)');
+
+  function txt(t,x,y,sz,col,bold=false,align='left'){
+    ctx.font=`${bold?'bold ':''}${sz}px Georgia,serif`;
+    ctx.fillStyle=col; ctx.shadowBlur=0; ctx.textAlign=align; ctx.fillText(t,x,y);
+  }
+
+  txt(`✦  SIGIL — ${state.name}  ✦`,W/2,m+10,26,colGold,true,'center');
+  ctx.strokeStyle=colDim.replace('0.42)','0.2)'); ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.moveTo(m,m+26);ctx.lineTo(W-m,m+26);ctx.stroke();
+
+  let y = m+58;
+  txt(`Naam: ${state.name}`,m,y,14,colGold,true); y+=lh;
+  txt(`Geboortedatum: ${state.day}/${state.month}/${state.year}${state.hour?' om '+state.hour:''}${state.place?' · '+state.place:''}`,m,y,13,colDim); y+=lh;
+  txt(`Driver: ${calc.driv} (${PLANET[calc.driv]})   Levenspad: ${calc.life} (${PLANET[calc.life]})   Bestemming: ${calc.dest} (${PLANET[calc.dest]})`,m,y,12,colDim); y+=lh*1.4;
+
+  ctx.strokeStyle=colDim.replace('0.42)','0.12)');ctx.beginPath();ctx.moveTo(m,y-8);ctx.lineTo(W-m,y-8);ctx.stroke();
+
+  const cards = buildUitlegCards();
+  cards.forEach(({title,text}) => {
+    if(y>H-60) return;
+    txt(title,m,y,15,colGold,true); y+=lh*0.9;
+    // Tekstwrap
+    const words=text.split(' '); let row='';
+    words.forEach(w=>{
+      const test=row?row+' '+w:w;
+      ctx.font=`13px Georgia,serif`;
+      if(ctx.measureText(test).width>W-m*2.2){
+        txt(row,m+8,y,13,colDim); y+=lh*0.80; row=w;
+      } else row=test;
+    });
+    if(row){txt(row,m+8,y,13,colDim);y+=lh*0.80;}
+    y+=lh*0.6;
+    if(y<H-60){ctx.strokeStyle=colDim.replace('0.42)','0.10)');ctx.beginPath();ctx.moveTo(m,y-4);ctx.lineTo(W-m,y-4);ctx.stroke();}
+    y+=10;
+  });
+
+  txt(`Gegenereerd · Sigil Coach`,W/2,H-20,10,colDim.replace('0.42)','0.22)'),'','center');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GENERATE ALL
+// ═══════════════════════════════════════════════════════════════════════════
+function generateAll() {
+  save();
+  if(!state.name||!state.day||!state.month||!state.year){
+    alert('Vul minstens naam en geboortedatum in.'); return;
+  }
+  const mode = state.style||'white';
+  const SIZE = 600;
+
+  // Naamsymbool
+  const cn=document.getElementById('cv-name'); cn.width=SIZE;cn.height=SIZE;
+  drawNameSymbol(cn,mode);
+
+  // Lijnsigil
+  const cs=document.getElementById('cv-sigil'); cs.width=SIZE;cs.height=SIZE;
+  drawLineSigil(cs,mode);
+
+  // Decoratief
+  const cd=document.getElementById('cv-decor'); cd.width=SIZE;cd.height=SIZE;
+  drawDecorSigil(cd,mode);
+
+  // Uitleg HTML
+  const cards=buildUitlegCards();
+  renderUitlegCards(cards);
+  drawUitlegCanvas();
+
+  // Preview teksten
+  const pn=`${state.name}`,pd=`${state.day} / ${state.month} / ${state.year}${state.hour?' · '+state.hour:''}`;
+  ['n','s','d','u'].forEach(p=>{
+    const pne=document.getElementById(`${p}-pname`),pde=document.getElementById(`${p}-pdate`);
+    if(pne)pne.textContent=pn; if(pde)pde.textContent=pd;
+  });
+
+  // Toon content
+  ['name','sigil','decor','uitleg'].forEach(k=>{
+    document.getElementById(`${k}-empty`).style.display='none';
+    document.getElementById(`${k}-content`).style.display='block';
+  });
+
+  // Numerologie info
+  renderNumInfo();
+
+  state.generated=true;
+  showTab(1);
+}
+
+function renderNumInfo() {
+  const calc=calcAll();
+  const {name} = state;
+  const letters=name.split('').filter(c=>PY[c]);
+
+  // Naamsymbool info
+  const nwrap=document.getElementById('name-num-info');
+  const letterRow=letters.map(c=>`${c}=${PY[c]}`).join('  ');
+  const pathStr=calc.uName.join(' → ');
+  nwrap.innerHTML=`
+    <div class="num-row">
+      <div class="num-badge"><div class="val">${calc.dest}</div><div class="lbl">Bestemming</div><div style="font-size:10px;color:var(--textdim);margin-top:3px">${PLANET[calc.dest]}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--textdim);margin-bottom:6px;font-family:var(--serif)">${letterRow}</div>
+    <div style="font-size:11px;color:var(--textdim)">Sigil-pad naam: <span style="color:var(--gold)">${pathStr}</span></div>
+  `;
+
+  // Lijnsigil info
+  const swrap=document.getElementById('sigil-num-info');
+  swrap.innerHTML=`
+    <div class="num-row">
+      <div class="num-badge"><div class="val">${calc.driv}</div><div class="lbl">Driver</div><div style="font-size:10px;color:var(--textdim);margin-top:3px">${PLANET[calc.driv]}</div></div>
+      <div class="num-badge"><div class="val">${calc.life}</div><div class="lbl">Levenspad</div><div style="font-size:10px;color:var(--textdim);margin-top:3px">${PLANET[calc.life]}</div></div>
+      <div class="num-badge"><div class="val">${calc.dest}</div><div class="lbl">Bestemming</div><div style="font-size:10px;color:var(--textdim);margin-top:3px">${PLANET[calc.dest]}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--textdim)">Naam-pad: <span style="color:var(--purple,#8b6fce)">${calc.uName.join(' → ')}</span></div>
+    <div style="font-size:11px;color:var(--textdim);margin-top:4px">Datum-pad: <span style="color:var(--gold)">${calc.uDob.join(' → ')}</span></div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DOWNLOAD
+// ═══════════════════════════════════════════════════════════════════════════
+function dlCanvas(id,label){
+  const c=document.getElementById(id);
+  const a=document.createElement('a');
+  a.download=`sigil-${(state.name||'onbekend').toLowerCase()}-${label}.png`;
+  a.href=c.toDataURL('image/png'); a.click();
+}
+function dlUitleg(){
+  drawUitlegCanvas();
+  dlCanvas('cv-uitleg','uitleg');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SERVICE WORKER (PWA offline)
+// ═══════════════════════════════════════════════════════════════════════════
+if('serviceWorker' in navigator){
+  const swCode=`
+self.addEventListener('install',e=>{self.skipWaiting();});
+self.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});
+`;
+  const swBlob=new Blob([swCode],{type:'application/javascript'});
+  const swURL=URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swURL).catch(()=>{});
+}
+</script>
+</body>
+</html>
